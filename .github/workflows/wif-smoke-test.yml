@@ -1,0 +1,80 @@
+name: wif-smoke-test
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wif-smoke-test.yml"
+  workflow_dispatch:
+
+# Least privilege for the workflow token; id-token is required for OIDC.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan-identity:
+    name: Plan identity - read OK, write denied
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate via WIF as the read-only plan identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAN_SA }}
+          token_format: access_token
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Read the state bucket (must succeed)
+        run: gcloud storage ls "gs://${{ vars.TF_STATE_BUCKET }}/"
+
+      - name: Write to the state bucket (must be DENIED)
+        run: |
+          echo "probe" > probe.txt
+          if gcloud storage cp probe.txt "gs://${{ vars.TF_STATE_BUCKET }}/smoke-probe.txt"; then
+            echo "FAIL: plan identity was able to write"; exit 1
+          else
+            echo "PASS: write denied - plan identity is read-only"
+          fi
+
+  deployer-denied-from-pr:
+    name: Deployer from PR - must be DENIED
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attempt to impersonate the deployer without an environment
+        id: auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          token_format: access_token
+
+      - name: Assert the attempt was denied
+        run: |
+          if [ "${{ steps.auth.outcome }}" = "success" ]; then
+            echo "FAIL: a PR obtained deployer credentials"; exit 1
+          else
+            echo "PASS: deployer denied outside environment dev"
+          fi
+
+  deployer-allowed-in-dev:
+    name: Deployer in environment dev - must succeed
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Authenticate via WIF as the deployer
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          token_format: access_token
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Read project metadata as the deployer
+        run: gcloud projects describe "${{ vars.GCP_PROJECT_ID }}" --format="value(projectId,projectNumber)"
