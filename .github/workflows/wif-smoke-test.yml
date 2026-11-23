@@ -16,6 +16,13 @@ jobs:
     name: Plan identity - read OK, write denied
     runs-on: ubuntu-latest
     steps:
+      - name: Preflight - required repository variables are set
+        run: |
+          for v in "${{ vars.GCP_WIF_PROVIDER }}" "${{ vars.GCP_PLAN_SA }}" "${{ vars.TF_STATE_BUCKET }}"; do
+            [ -n "$v" ] || { echo "FAIL: a required repository variable is empty"; exit 1; }
+          done
+          echo "PASS: variables present"
+
       - name: Authenticate via WIF as the read-only plan identity
         uses: google-github-actions/auth@v2
         with:
@@ -29,35 +36,49 @@ jobs:
       - name: Read the state bucket (must succeed)
         run: gcloud storage ls "gs://${{ vars.TF_STATE_BUCKET }}/"
 
-      - name: Write to the state bucket (must be DENIED)
+      - name: Write to the state bucket (must be DENIED by IAM)
         run: |
           echo "probe" > probe.txt
-          if gcloud storage cp probe.txt "gs://${{ vars.TF_STATE_BUCKET }}/smoke-probe.txt"; then
+          if out=$(gcloud storage cp probe.txt "gs://${{ vars.TF_STATE_BUCKET }}/smoke-probe.txt" 2>&1); then
             echo "FAIL: plan identity was able to write"; exit 1
+          fi
+          echo "$out" | tail -3
+          if echo "$out" | grep -qiE '403|denied|permission'; then
+            echo "PASS: write denied by IAM - plan identity is read-only"
           else
-            echo "PASS: write denied - plan identity is read-only"
+            echo "FAIL: write failed for an unexpected reason"; exit 1
           fi
 
-  deployer-denied-from-pr:
-    name: Deployer from PR - must be DENIED
-    if: github.event_name == 'pull_request'
+  deployer-denied-without-environment:
+    name: Deployer without environment - must be DENIED
     runs-on: ubuntu-latest
     steps:
-      - name: Attempt to impersonate the deployer without an environment
-        id: auth
-        continue-on-error: true
+      - name: Preflight - required repository variables are set
+        run: |
+          for v in "${{ vars.GCP_WIF_PROVIDER }}" "${{ vars.GCP_DEPLOYER_SA }}"; do
+            [ -n "$v" ] || { echo "FAIL: a required repository variable is empty"; exit 1; }
+          done
+          echo "PASS: variables present"
+
+      - name: Configure WIF credentials for the deployer (no token minted yet)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOYER_SA }}
-          token_format: access_token
 
-      - name: Assert the attempt was denied
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Attempt to mint a deployer token (must be PERMISSION DENIED)
         run: |
-          if [ "${{ steps.auth.outcome }}" = "success" ]; then
-            echo "FAIL: a PR obtained deployer credentials"; exit 1
+          if out=$(gcloud auth print-access-token 2>&1); then
+            echo "FAIL: obtained deployer credentials without environment dev"; exit 1
+          fi
+          echo "$out" | tail -5
+          if echo "$out" | grep -qiE 'getAccessToken|PERMISSION_DENIED|403'; then
+            echo "PASS: deployer denied by IAM outside environment dev"
           else
-            echo "PASS: deployer denied outside environment dev"
+            echo "FAIL: denied for an unexpected reason - check the log above"; exit 1
           fi
 
   deployer-allowed-in-dev:
@@ -66,6 +87,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     steps:
+      - name: Preflight - required repository variables are set
+        run: |
+          for v in "${{ vars.GCP_WIF_PROVIDER }}" "${{ vars.GCP_DEPLOYER_SA }}" "${{ vars.GCP_PROJECT_ID }}"; do
+            [ -n "$v" ] || { echo "FAIL: a required repository variable is empty"; exit 1; }
+          done
+          echo "PASS: variables present"
+
       - name: Authenticate via WIF as the deployer
         uses: google-github-actions/auth@v2
         with:
