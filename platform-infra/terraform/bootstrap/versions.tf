@@ -1,6 +1,5 @@
-
 terraform {
-  required_version = ">= 1.3.0"
+  required_version = ">= 1.5.0"
 
   backend "gcs" {
     bucket = "vibrant-chain-514216-p4-tfstate"
@@ -19,4 +18,3 @@ provider "google" {
   project = var.project_id
   region  = "asia-south1"
 }
-

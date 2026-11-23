@@ -1,31 +1,30 @@
 variable "project_id" {
-  description = "GCP project hosting Terraform state"
+  description = "GCP project hosting the platform."
   type        = string
   default     = "vibrant-chain-514216-p4"
 }
 
 variable "bucket_prefix" {
-  description = "Prefix for Terraform state bucket"
+  description = "Prefix for the Terraform state bucket."
   type        = string
   default     = "vibrant-chain-514216-p4"
 }
 
 variable "bucket_suffix" {
-  description = "Suffix for Terraform state bucket"
+  description = "Suffix for the Terraform state bucket."
   type        = string
   default     = "tfstate"
 }
 
 variable "location" {
-  description = "GCS bucket location"
+  description = "State bucket location."
   type        = string
   default     = "ASIA-SOUTH1"
 }
 
 variable "labels" {
-  description = "Labels applied to the state bucket"
+  description = "Labels applied to the state bucket."
   type        = map(string)
-
   default = {
     purpose     = "terraform-state"
     environment = "platform"
@@ -33,45 +32,80 @@ variable "labels" {
   }
 }
 
-# GitHub repository allowed to authenticate to GCP.
 variable "github_owner" {
-  description = "GitHub organization or user that owns the repository."
+  description = "GitHub user/org that owns the platform repository."
   type        = string
   default     = "utkarsh14021999kumar"
 }
 
 variable "github_repository" {
-  description = "GitHub repository name allowed to authenticate."
+  description = "Platform repository allowed to authenticate (ADR-0001)."
   type        = string
-  default     = "kaverigcp"
+  default     = "kaveri-platform"
 }
 
-variable "github_branch" {
-  description = "Git branch permitted to deploy infrastructure."
-  type        = string
-  default     = "master"
-}
-
-variable "github_environment" {
-  description = "GitHub deployment environment required for infrastructure deployment."
-  type        = string
-  default     = "dev"
+variable "github_deploy_environments" {
+  description = "GitHub environments whose jobs may impersonate the deployer."
+  type        = list(string)
+  default     = ["dev"]
+  validation {
+    condition     = alltrue([for e in var.github_deploy_environments : contains(["dev", "qa", "uat", "prod"], e)])
+    error_message = "Allowed environments: dev, qa, uat, prod."
+  }
 }
 
 variable "workload_identity_pool_id" {
-  description = "ID of the GitHub Workload Identity Pool."
+  description = "Workload Identity Pool ID."
   type        = string
   default     = "kaveri-github-pool"
 }
 
 variable "workload_identity_provider_id" {
-  description = "ID of the GitHub OIDC provider."
+  description = "GitHub OIDC provider ID."
   type        = string
   default     = "github-oidc-provider"
 }
 
 variable "deployer_service_account_id" {
-  description = "Dedicated service account ID for Terraform deployments."
+  description = "Account ID of the apply (deployer) identity."
   type        = string
   default     = "kaveri-terraform-deployer"
+}
+
+variable "plan_service_account_id" {
+  description = "Account ID of the read-only plan identity."
+  type        = string
+  default     = "kaveri-terraform-plan"
+}
+
+variable "deployer_project_roles" {
+  description = "Least-privilege project roles for the deployer."
+  type        = list(string)
+  default = [
+    "roles/serviceusage.serviceUsageAdmin",
+    "roles/compute.networkAdmin",
+    "roles/compute.securityAdmin",
+    "roles/container.clusterAdmin",
+    "roles/artifactregistry.admin",
+    "roles/secretmanager.admin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/monitoring.alertPolicyEditor",
+    "roles/browser",
+  ]
+  validation {
+    condition     = alltrue([for r in var.deployer_project_roles : startswith(r, "roles/")]) && !contains(var.deployer_project_roles, "roles/owner") && !contains(var.deployer_project_roles, "roles/editor")
+    error_message = "Roles must start with roles/ and must not include roles/owner or roles/editor."
+  }
+}
+
+variable "deployer_grantable_roles" {
+  description = "The only roles the deployer may grant/revoke via conditional projectIamAdmin."
+  type        = list(string)
+  default     = ["roles/container.defaultNodeServiceAccount"]
+}
+
+variable "plan_project_roles" {
+  description = "Read-only project roles for the plan identity."
+  type        = list(string)
+  default     = ["roles/viewer", "roles/iam.securityReviewer"]
 }
