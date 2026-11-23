@@ -39,8 +39,7 @@ jobs:
           fi
 
   deployer-denied-from-pr:
-    name: Deployer from PR - must be DENIED
-    if: github.event_name == 'pull_request'
+    name: Deployer without environment - must be DENIED
     runs-on: ubuntu-latest
     steps:
       - name: Attempt to impersonate the deployer without an environment
