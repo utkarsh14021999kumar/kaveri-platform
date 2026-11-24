@@ -107,7 +107,21 @@ variable "deployer_grantable_roles" {
 variable "plan_project_roles" {
   description = "Read-only project roles for the plan identity."
   type        = list(string)
-  default     = ["roles/viewer", "roles/iam.securityReviewer"]
+  default = [
+    "roles/iam.securityReviewer",
+    "roles/browser",
+    "roles/compute.viewer",
+    "roles/container.viewer",
+    "roles/artifactregistry.reader",
+    "roles/secretmanager.viewer",
+    "roles/monitoring.viewer",
+    "roles/serviceusage.serviceUsageViewer",
+    "roles/iam.serviceAccountViewer",
+  ]
+  validation {
+    condition     = length(setintersection(var.plan_project_roles, ["roles/viewer", "roles/editor", "roles/owner"])) == 0
+    error_message = "Plan identity must not use basic roles (viewer/editor/owner) - CKV_GCP_117."
+  }
 }
 
 variable "github_owner_id" {
