@@ -36,12 +36,6 @@
                     "check_ids": [
                         "CKV_GCP_66"
                     ]
-                },
-                {
-                    "resource": "module.gke.google_container_node_pool.this[\"kaveri-dev-system-pool\"]",
-                    "check_ids": [
-                        "CKV_GCP_69"
-                    ]
                 }
             ]
         },

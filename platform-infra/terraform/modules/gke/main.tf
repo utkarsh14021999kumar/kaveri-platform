@@ -150,6 +150,11 @@ resource "google_container_node_pool" "this" {
     image_type      = each.value.image_type
     service_account = var.node_service_account_email
 
+    # Pods get only their own Workload Identity, never the node's credentials (CKV_GCP_69).
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
