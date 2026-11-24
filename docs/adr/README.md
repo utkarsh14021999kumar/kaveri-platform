@@ -13,6 +13,7 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
 | [0005](0005-single-project-per-environment-isolation.md) | Single GCP project, per-environment isolation | Accepted |
 | [0006](0006-cost-model-short-burst.md) | Cost model: short-burst billing | Accepted |
 | [0007](0007-pipeline-only-infrastructure-changes.md) | Infrastructure changes only through the pipeline | Accepted |
+| [0008](0008-deployer-sa-admin-risk-acceptance.md) | Deployer SA administration: accepted risk | Accepted |
 
 ## Template
 
