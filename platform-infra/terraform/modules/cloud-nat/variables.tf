@@ -44,16 +44,25 @@ variable "drain_nat_ips" {
 }
 
 variable "min_ports_per_vm" {
-  description = "Minimum NAT ports allocated per VM"
-  type        = string
-  default     = "64"
+  description = "Minimum NAT ports per VM (whole number, 2-65536)."
+  type        = number
+  default     = 64
+
+  validation {
+    condition     = var.min_ports_per_vm >= 2 && var.min_ports_per_vm <= 65536 && floor(var.min_ports_per_vm) == var.min_ports_per_vm
+    error_message = "min_ports_per_vm must be a whole number between 2 and 65536."
+  }
 }
 
 variable "max_ports_per_vm" {
-  description = "Maximum NAT ports per VM when dynamic allocation is enabled"
-  type        = string
+  description = "Maximum NAT ports per VM, used only with dynamic port allocation (null or a power of two, 64-65536)."
+  type        = number
   default     = null
-  nullable    = true
+
+  validation {
+    condition     = var.max_ports_per_vm == null ? true : contains([for i in range(6, 17) : pow(2, i)], var.max_ports_per_vm)
+    error_message = "max_ports_per_vm must be null or a power of two between 64 and 65536."
+  }
 }
 
 variable "enable_dynamic_port_allocation" {

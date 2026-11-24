@@ -20,16 +20,31 @@ variable "subnet_name" {
 }
 
 variable "subnet_cidr" {
-  description = "Primary subnet CIDR range"
+  description = "Primary subnet range (canonical IPv4 CIDR, e.g. 10.10.1.0/24)."
   type        = string
+
+  validation {
+    condition     = can(cidrnetmask(var.subnet_cidr)) && can(cidrsubnet(var.subnet_cidr, 0, 0)) && try(cidrsubnet(var.subnet_cidr, 0, 0) == var.subnet_cidr, false)
+    error_message = "subnet_cidr must be a valid canonical IPv4 CIDR with no host bits set (e.g. 10.10.1.0/24, not 10.10.1.5/24)."
+  }
 }
 
 variable "pod_cidr" {
-  description = "GKE Pod secondary CIDR range"
+  description = "Secondary range for GKE Pods (canonical IPv4 CIDR, e.g. 10.10.1.0/24)."
   type        = string
+
+  validation {
+    condition     = can(cidrnetmask(var.pod_cidr)) && can(cidrsubnet(var.pod_cidr, 0, 0)) && try(cidrsubnet(var.pod_cidr, 0, 0) == var.pod_cidr, false)
+    error_message = "pod_cidr must be a valid canonical IPv4 CIDR with no host bits set (e.g. 10.10.1.0/24, not 10.10.1.5/24)."
+  }
 }
 
 variable "service_cidr" {
-  description = "GKE Service secondary CIDR range"
+  description = "Secondary range for GKE Services (canonical IPv4 CIDR, e.g. 10.10.1.0/24)."
   type        = string
+
+  validation {
+    condition     = can(cidrnetmask(var.service_cidr)) && can(cidrsubnet(var.service_cidr, 0, 0)) && try(cidrsubnet(var.service_cidr, 0, 0) == var.service_cidr, false)
+    error_message = "service_cidr must be a valid canonical IPv4 CIDR with no host bits set (e.g. 10.10.1.0/24, not 10.10.1.5/24)."
+  }
 }
