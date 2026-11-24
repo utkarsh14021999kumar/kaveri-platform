@@ -68,6 +68,14 @@ variable "node_pools" {
     auto_upgrade       = bool
   }))
 
+  validation {
+    condition = alltrue([for p in var.node_pools :
+      p.min_count >= 0 && p.min_count <= p.max_count &&
+      p.initial_node_count >= p.min_count && p.initial_node_count <= p.max_count
+    ])
+    error_message = "Each node pool needs 0 <= min_count <= initial_node_count <= max_count."
+  }
+
   default = [
     {
       name               = "system-pool"

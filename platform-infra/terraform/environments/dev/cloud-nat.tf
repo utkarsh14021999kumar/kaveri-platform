@@ -23,7 +23,7 @@ module "cloud_nat" {
 
   nat_ips          = []
   drain_nat_ips    = []
-  min_ports_per_vm = "64"
+  min_ports_per_vm = 64
 
   max_ports_per_vm               = null
   enable_dynamic_port_allocation = false
