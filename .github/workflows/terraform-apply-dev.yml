@@ -1,0 +1,123 @@
+name: terraform-apply-dev
+
+# Phase 1: manual trigger only, plan-only by default.
+# Automatic apply on merge to main is enabled in Phase 2 (DEV hardened + budget alerts in place).
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply after approval (false = plan only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One DEV change at a time; never cancel a running apply.
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.17.1"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_DIR: platform-infra/terraform/environments/dev
+
+jobs:
+  plan:
+    name: Plan DEV (read-only identity)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate via WIF as the read-only plan identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAN_SA }}
+
+      - name: terraform init
+        run: terraform -chdir="$TF_DIR" init -lockfile=readonly -no-color
+
+      - name: terraform plan (detailed exit code)
+        id: plan
+        run: |
+          set +e
+          terraform -chdir="$TF_DIR" plan -lock=false -no-color -detailed-exitcode -out=tfplan > plan.log 2>&1
+          ec=$?
+          set -e
+          cat plan.log
+          if [ "$ec" -eq 1 ]; then echo "Plan failed"; exit 1; fi
+          if [ "$ec" -eq 2 ]; then echo "has_changes=true" >> "$GITHUB_OUTPUT"; else echo "has_changes=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Render plan and write job summary for the approver
+        run: |
+          terraform -chdir="$TF_DIR" show -no-color tfplan > plan.txt
+          {
+            echo "### DEV plan for approval"
+            echo
+            echo "**$(grep -E '^Plan:|^No changes' plan.txt | head -1)**"
+            echo
+            grep -E '^  # ' plan.txt | sed 's/^  # /    /' | head -200
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact plan for the apply job
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev-${{ github.run_id }}
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            plan.txt
+          retention-days: 5
+
+  apply:
+    name: Apply DEV (deployer, approval required)
+    needs: plan
+    if: needs.plan.outputs.has_changes == 'true' && inputs.apply
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Download the exact approved plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-dev-${{ github.run_id }}
+
+      - name: Authenticate via WIF as the deployer (environment dev only)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: terraform init
+        run: terraform -chdir="$TF_DIR" init -lockfile=readonly -no-color
+
+      - name: terraform apply (exact approved plan; refuses if stale)
+        run: terraform -chdir="$TF_DIR" apply -no-color tfplan
+
+      - name: Apply summary
+        run: |
+          {
+            echo "### DEV apply complete"
+            echo "Run ${{ github.run_id }} - commit ${GITHUB_SHA:0:7} - approved via environment dev"
+          } >> "$GITHUB_STEP_SUMMARY"
