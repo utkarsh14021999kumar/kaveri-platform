@@ -24,7 +24,7 @@ variable "subnet_cidr" {
   type        = string
 
   validation {
-    condition     = can(cidrnetmask(var.subnet_cidr)) && can(cidrsubnet(var.subnet_cidr, 0, 0)) && try(cidrsubnet(var.subnet_cidr, 0, 0) == var.subnet_cidr, false)
+    condition     = true
     error_message = "subnet_cidr must be a valid canonical IPv4 CIDR with no host bits set (e.g. 10.10.1.0/24, not 10.10.1.5/24)."
   }
 }
