@@ -14,6 +14,7 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
 | [0006](0006-cost-model-short-burst.md) | Cost model: short-burst billing | Accepted |
 | [0007](0007-pipeline-only-infrastructure-changes.md) | Infrastructure changes only through the pipeline | Accepted |
 | [0008](0008-deployer-sa-admin-risk-acceptance.md) | Deployer SA administration: accepted risk | Accepted |
+| [0009](0009-policy-as-code-and-cost-visibility.md) | Policy as code and cost visibility | Accepted |
 
 ## Template
 
