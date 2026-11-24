@@ -32,3 +32,9 @@ variable "labels" {
     managed_by  = "terraform"
   }
 }
+
+variable "log_bucket" {
+  description = "Bucket that receives access logs for this bucket (CKV_GCP_62). Null disables access logging."
+  type        = string
+  default     = null
+}

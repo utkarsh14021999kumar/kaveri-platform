@@ -14,6 +14,15 @@ resource "google_storage_bucket" "this" {
     enabled = true
   }
 
+  # Access logs: who read/wrote Terraform state, and when (CKV_GCP_62).
+  dynamic "logging" {
+    for_each = var.log_bucket == null ? [] : [var.log_bucket]
+    content {
+      log_bucket        = logging.value
+      log_object_prefix = "tfstate-access/"
+    }
+  }
+
   lifecycle {
     prevent_destroy = true
   }
