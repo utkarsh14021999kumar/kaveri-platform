@@ -12,6 +12,7 @@ resource "google_iam_workload_identity_pool" "github" {
 # Accepts GitHub OIDC tokens only from the platform repository, matched by immutable IDs
 # (names can be renamed or re-registered; numeric IDs cannot - prevents repo-jacking).
 resource "google_iam_workload_identity_pool_provider" "github" {
+  # checkov:skip=CKV_GCP_125:Condition pins immutable owner/repo IDs (stronger than name claims); see docs/incidents/2026-11-23-wif-deployer-403.md.
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = var.workload_identity_provider_id
