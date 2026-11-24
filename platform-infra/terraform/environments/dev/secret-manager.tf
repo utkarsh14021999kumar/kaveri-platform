@@ -16,7 +16,10 @@ module "secret_manager" {
     }
   ]
 
-  labels = merge(local.common_labels, { component = "secret-manager" })
+  labels = {
+    "kaveri-dev-app-config"     = merge(local.common_labels, { component = "secret-manager", purpose = "application-config" })
+    "kaveri-dev-db-credentials" = merge(local.common_labels, { component = "secret-manager", purpose = "database-credentials" })
+  }
 
   # Only the application runtime identity receives secret access.
   secret_accessors_list = [

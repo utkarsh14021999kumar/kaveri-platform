@@ -1,5 +1,6 @@
 resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_65:No Google Workspace or Cloud Identity org; access controlled via IAM (single-operator platform).
+  # checkov:skip=CKV_GCP_21:Labels are set via resource_labels = var.labels (callers pass merge(local.common_labels,...)); static scanner cannot evaluate merge(). Verified in plan (#16).
   project  = var.project_id
   name     = var.cluster_name
   location = local.location
