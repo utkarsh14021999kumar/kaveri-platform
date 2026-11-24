@@ -38,17 +38,6 @@
                     ]
                 }
             ]
-        },
-        {
-            "file": "/modules/networking/main.tf",
-            "findings": [
-                {
-                    "resource": "module.networking.google_compute_network.this",
-                    "check_ids": [
-                        "CKV2_GCP_18"
-                    ]
-                }
-            ]
         }
     ]
 }
