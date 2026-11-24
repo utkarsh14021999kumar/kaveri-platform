@@ -2,7 +2,7 @@ resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_65:No Google Workspace or Cloud Identity org; access controlled via IAM (single-operator platform).
   project  = var.project_id
   name     = var.cluster_name
-  location = var.region
+  location = local.location
 
   network    = var.network
   subnetwork = var.subnetwork
@@ -11,6 +11,33 @@ resource "google_container_cluster" "this" {
 
   remove_default_node_pool = true
   initial_node_count       = 1
+
+  # The temporary default pool (removed right after creation) must use the dedicated
+  # node SA - never the Compute Engine default SA - with the same hardening as real pools.
+  node_config {
+    service_account = var.node_service_account_email
+    image_type      = "COS_CONTAINERD"
+    oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+  }
+
+  # IAM-controlled DNS endpoint for the control plane (no public IP, no authorized networks).
+  dynamic "control_plane_endpoints_config" {
+    for_each = var.enable_dns_endpoint ? [1] : []
+    content {
+      dns_endpoint_config {
+        allow_external_traffic = true
+      }
+    }
+  }
 
   release_channel {
     channel = "REGULAR"
@@ -79,6 +106,8 @@ resource "google_container_cluster" "this" {
 
   lifecycle {
     prevent_destroy = true
+    # The default pool is removed after creation; ignore its node_config afterwards.
+    ignore_changes = [node_config]
   }
 }
 
@@ -87,7 +116,7 @@ resource "google_container_node_pool" "this" {
 
   project  = var.project_id
   name     = each.value.name
-  location = var.region
+  location = local.location
   cluster  = google_container_cluster.this.name
 
   node_locations = split(",", each.value.node_locations)

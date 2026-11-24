@@ -73,3 +73,15 @@ variable "labels" {
     owner       = "devops"
   }
 }
+
+variable "zone" {
+  description = "Zone for the zonal DEV GKE cluster (ADR-0006: zonal for cost)."
+  type        = string
+  default     = "asia-south1-a"
+}
+
+variable "deployer_service_account_email" {
+  description = "Terraform deployer identity; needs actAs on the GKE node SA to create node pools."
+  type        = string
+  default     = "kaveri-terraform-deployer@vibrant-chain-514216-p4.iam.gserviceaccount.com"
+}
