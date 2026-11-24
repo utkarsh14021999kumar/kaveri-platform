@@ -9,6 +9,16 @@ resource "google_container_cluster" "this" {
 
   networking_mode = "VPC_NATIVE"
 
+  # Pod-to-pod traffic on the same node is visible to VPC flow logs (CKV_GCP_61).
+  enable_intranode_visibility = true
+
+  # Legacy static client certificates disabled; API access is IAM-only (CKV_GCP_13).
+  master_auth {
+    client_certificate_config {
+      issue_client_certificate = false
+    }
+  }
+
   remove_default_node_pool = true
   initial_node_count       = 1
 

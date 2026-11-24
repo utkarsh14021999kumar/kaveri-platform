@@ -34,10 +34,7 @@
                 {
                     "resource": "module.gke.google_container_cluster.this",
                     "check_ids": [
-                        "CKV_GCP_13",
-                        "CKV_GCP_61",
-                        "CKV_GCP_66",
-                        "CKV_GCP_69"
+                        "CKV_GCP_66"
                     ]
                 },
                 {
