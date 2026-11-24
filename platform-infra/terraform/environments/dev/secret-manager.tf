@@ -16,21 +16,7 @@ module "secret_manager" {
     }
   ]
 
-  labels = {
-    "kaveri-dev-app-config" = {
-      application = "kaveri"
-      environment = "dev"
-      purpose     = "application-config"
-      managed_by  = "terraform"
-    }
-
-    "kaveri-dev-db-credentials" = {
-      application = "kaveri"
-      environment = "dev"
-      purpose     = "database-credentials"
-      managed_by  = "terraform"
-    }
-  }
+  labels = merge(local.common_labels, { component = "secret-manager" })
 
   # Only the application runtime identity receives secret access.
   secret_accessors_list = [
