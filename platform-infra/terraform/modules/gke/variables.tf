@@ -107,3 +107,15 @@ variable "enable_private_endpoint" {
   type        = bool
   default     = true
 }
+
+variable "location" {
+  description = "Cluster location: a zone (zonal cluster, e.g. asia-south1-a) or a region (regional cluster). Defaults to var.region."
+  type        = string
+  default     = null
+}
+
+variable "enable_dns_endpoint" {
+  description = "Expose the control plane through the IAM-controlled DNS-based endpoint (no public IP, no authorized networks)."
+  type        = bool
+  default     = false
+}

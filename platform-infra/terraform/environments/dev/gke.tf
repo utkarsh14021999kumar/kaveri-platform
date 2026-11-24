@@ -4,6 +4,10 @@ module "gke" {
   project_id   = var.project_id
   cluster_name = "kaveri-dev-gke"
   region       = var.region
+  location     = var.zone
+
+  # CI reaches the private control plane through the IAM-controlled DNS endpoint.
+  enable_dns_endpoint = true
 
   network    = module.networking.network_name
   subnetwork = module.networking.subnets_names[0]
@@ -22,8 +26,7 @@ module "gke" {
     module.service_accounts.service_account_emails["gke-node"]
   )
 
-  # DEV uses one worker zone to limit compute costs.
-  # The GKE control plane remains regional.
+  # Zonal cluster (ADR-0006): control plane and nodes in var.zone.
   node_pools = [
     {
       name               = "kaveri-dev-system-pool"
@@ -52,6 +55,7 @@ module "gke" {
     module.networking,
     module.cloud_nat,
     module.iam,
-    module.artifact_registry
+    module.artifact_registry,
+    google_service_account_iam_member.deployer_acts_as_node_sa
   ]
 }
