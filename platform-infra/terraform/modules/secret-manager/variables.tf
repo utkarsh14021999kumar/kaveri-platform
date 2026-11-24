@@ -4,16 +4,18 @@ variable "project_id" {
 }
 
 variable "secrets" {
-  description = "Secret definitions. Secret data should be supplied through a secure process."
+  description = "Secret CONTAINERS (metadata only). Secret values never pass through Terraform - they are injected out-of-band, so nothing here is sensitive and nothing reaches state."
   type = list(object({
     name               = string
-    secret_data        = optional(string)
-    next_rotation_time = optional(string)
     rotation_period    = optional(string)
-    create_version     = optional(bool, false)
+    next_rotation_time = optional(string)
   }))
-  default   = []
-  sensitive = true
+  default = []
+
+  validation {
+    condition     = alltrue([for s in var.secrets : can(regex("^[A-Za-z0-9_-]{1,255}$", s.name))])
+    error_message = "Secret names may contain only letters, digits, '_' and '-', 1-255 characters."
+  }
 }
 
 variable "labels" {

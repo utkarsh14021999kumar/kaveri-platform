@@ -7,11 +7,3 @@ output "secret_names" {
   }
 }
 
-output "secret_versions" {
-  description = "Names of managed Secret Manager versions"
-
-  value = {
-    for name, version in google_secret_manager_secret_version.this :
-    name => version.name
-  }
-}
