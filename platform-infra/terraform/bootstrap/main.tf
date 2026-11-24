@@ -7,6 +7,7 @@ module "gcs_remote_state" {
   bucket_suffix = var.bucket_suffix
   location      = var.location
   labels        = var.labels
+  log_bucket    = google_storage_bucket.state_access_logs.name
 }
 
 # APIs required for Workload Identity Federation and IAM administration.
