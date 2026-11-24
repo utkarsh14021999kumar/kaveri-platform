@@ -9,8 +9,8 @@ resource "google_iam_workload_identity_pool" "github" {
   depends_on = [google_project_service.identity_apis]
 }
 
-# Accepts GitHub OIDC tokens only from the platform repository.
-# Finer rules (plan vs deploy) are enforced by the service account bindings.
+# Accepts GitHub OIDC tokens only from the platform repository, matched by immutable IDs
+# (names can be renamed or re-registered; numeric IDs cannot - prevents repo-jacking).
 resource "google_iam_workload_identity_pool_provider" "github" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
@@ -18,14 +18,16 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   display_name                       = "Kaveri GitHub OIDC Provider"
 
   attribute_mapping = {
-    "google.subject"             = "assertion.sub"
-    "attribute.repository"       = "assertion.repository"
-    "attribute.repository_owner" = "assertion.repository_owner"
-    "attribute.ref"              = "assertion.ref"
-    "attribute.actor"            = "assertion.actor"
+    "google.subject"                = "assertion.sub"
+    "attribute.repository"          = "assertion.repository"
+    "attribute.repository_owner"    = "assertion.repository_owner"
+    "attribute.repository_id"       = "assertion.repository_id"
+    "attribute.repository_owner_id" = "assertion.repository_owner_id"
+    "attribute.ref"                 = "assertion.ref"
+    "attribute.actor"               = "assertion.actor"
   }
 
-  attribute_condition = "assertion.repository_owner == '${var.github_owner}' && assertion.repository == '${var.github_owner}/${var.github_repository}'"
+  attribute_condition = "assertion.repository_owner_id == '${var.github_owner_id}' && assertion.repository_id == '${var.github_repository_id}'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
