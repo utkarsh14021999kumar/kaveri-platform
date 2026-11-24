@@ -143,3 +143,24 @@ variable "github_repository_id" {
     error_message = "github_repository_id must be numeric."
   }
 }
+
+variable "billing_account_id" {
+  description = "Billing account for the budget. Supplied via TF_VAR_billing_account_id (not committed)."
+  type        = string
+}
+
+variable "budget_alert_email" {
+  description = "Email for budget alerts. Supplied via TF_VAR_budget_alert_email (not committed)."
+  type        = string
+}
+
+variable "budget_amount_inr" {
+  description = "Monthly budget in INR; alerts at 25/50/100% (500/1000/2000 for 2000)."
+  type        = number
+  default     = 2000
+
+  validation {
+    condition     = var.budget_amount_inr > 0
+    error_message = "budget_amount_inr must be positive."
+  }
+}
