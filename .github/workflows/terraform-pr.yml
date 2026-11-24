@@ -1,0 +1,140 @@
+name: terraform-pr
+
+on:
+  pull_request:
+    paths:
+      - "platform-infra/terraform/**"
+      - ".github/workflows/terraform-pr.yml"
+
+# Workflow token: read-only by default; jobs elevate only what they need.
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the older run.
+concurrency:
+  group: terraform-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: "1.17.1"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  static:
+    name: Static checks (fmt, validate, TFLint, Checkov, Gitleaks)
+    runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tf-plugin-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff platform-infra/terraform
+
+      - name: terraform validate (roots with committed lock files)
+        run: |
+          set -euo pipefail
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          for d in platform-infra/terraform/bootstrap platform-infra/terraform/environments/dev; do
+            echo "::group::validate $d"
+            terraform -chdir="$d" init -backend=false -lockfile=readonly -no-color >/dev/null
+            terraform -chdir="$d" validate -no-color
+            echo "::endgroup::"
+          done
+
+      - name: terraform validate (modules)
+        run: |
+          set -euo pipefail
+          for d in platform-infra/terraform/modules/*/; do
+            echo "::group::validate $d"
+            terraform -chdir="$d" init -backend=false -no-color >/dev/null
+            terraform -chdir="$d" validate -no-color
+            echo "::endgroup::"
+          done
+
+      - name: TFLint
+        run: |
+          docker run --rm -v "$PWD:/data" -w /data/platform-infra/terraform \
+            ghcr.io/terraform-linters/tflint:latest --recursive --format compact
+
+      - name: Checkov (new findings fail; known findings in .checkov.baseline)
+        run: |
+          docker run --rm -v "$PWD:/tf" bridgecrew/checkov:latest \
+            -d /tf/platform-infra/terraform --framework terraform \
+            --baseline /tf/platform-infra/terraform/.checkov.baseline --compact --quiet
+
+      - name: Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source /repo --no-git --redact
+
+  plan-dev:
+    name: Plan DEV (read-only identity)
+    needs: static
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      TF_DIR: platform-infra/terraform/environments/dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate via WIF as the read-only plan identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAN_SA }}
+
+      - name: terraform init (GCS backend, committed lock file)
+        run: terraform -chdir="$TF_DIR" init -lockfile=readonly -no-color
+
+      - name: terraform plan (no state lock - read-only identity)
+        run: |
+          set -o pipefail
+          terraform -chdir="$TF_DIR" plan -lock=false -no-color -out=tfplan 2>&1 | tee plan.log
+
+      - name: Render plan
+        run: terraform -chdir="$TF_DIR" show -no-color tfplan > plan.txt
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev-pr${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            plan.txt
+          retention-days: 5
+
+      - name: Comment plan summary on the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.sha }}
+        run: |
+          SUMMARY=$(grep -E '^Plan:|^No changes' plan.txt | head -1)
+          {
+            echo "### Terraform plan - environments/dev"
+            echo "Commit ${SHA:0:7} - identity: read-only plan SA - state lock: not taken"
+            echo
+            echo "**${SUMMARY:-no summary found}**"
+            echo
+            echo "Resource actions (addresses only):"
+            echo
+            grep -E '^  # ' plan.txt | sed 's/^  # /    /' | head -150
+            echo
+            echo "Full plan: artifact tfplan-dev-pr${PR}-${SHA} (5-day retention)."
+          } > comment.md
+          gh pr comment "$PR" --body-file comment.md
