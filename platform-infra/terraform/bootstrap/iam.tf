@@ -13,6 +13,7 @@ resource "google_storage_bucket_iam_member" "plan_state" {
 
 # Deployer: least-privilege project roles (no owner/editor, no project-wide actAs).
 resource "google_project_iam_member" "deployer" {
+  # checkov:skip=CKV_GCP_49:Accepted risk with compensating controls - see docs/adr/0008-deployer-sa-admin-risk-acceptance.md.
   for_each = toset(var.deployer_project_roles)
 
   project = var.project_id
