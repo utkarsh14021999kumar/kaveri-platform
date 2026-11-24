@@ -109,3 +109,23 @@ variable "plan_project_roles" {
   type        = list(string)
   default     = ["roles/viewer", "roles/iam.securityReviewer"]
 }
+
+variable "github_owner_id" {
+  description = "Immutable numeric ID of the GitHub owner (used in the immutable OIDC subject)."
+  type        = string
+  default     = "184352890"
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_owner_id))
+    error_message = "github_owner_id must be numeric."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric ID of the platform repository (used in the immutable OIDC subject)."
+  type        = string
+  default     = "1468204581"
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "github_repository_id must be numeric."
+  }
+}
