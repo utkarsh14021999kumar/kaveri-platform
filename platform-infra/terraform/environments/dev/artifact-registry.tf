@@ -9,11 +9,7 @@ module "artifact_registry" {
 
   description = "Private Docker repository for Kaveri DEV microservices"
 
-  labels = {
-    application = "kaveri"
-    environment = "dev"
-    managed_by  = "terraform"
-  }
+  labels = merge(local.common_labels, { component = "artifact-registry" })
 
   docker_config = {
     immutable_tags = true

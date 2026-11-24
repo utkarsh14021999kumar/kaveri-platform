@@ -43,12 +43,7 @@ module "gke" {
     }
   ]
 
-  labels = {
-    application = "kaveri"
-    environment = "dev"
-    managed_by  = "terraform"
-    platform    = "gke"
-  }
+  labels = merge(local.common_labels, { component = "gke" })
 
   depends_on = [
     google_project_service.required,

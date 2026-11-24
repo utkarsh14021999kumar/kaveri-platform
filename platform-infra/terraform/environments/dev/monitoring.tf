@@ -32,11 +32,7 @@ resource "google_monitoring_alert_policy" "gke_node_cpu_high" {
     content   = "Kaveri DEV GKE node CPU utilization has remained above 85% for five minutes. Review node and workload resource consumption."
   }
 
-  user_labels = {
-    application = "kaveri"
-    environment = "dev"
-    managed_by  = "terraform"
-  }
+  user_labels = merge(local.common_labels, { component = "monitoring" })
 
   depends_on = [
     google_project_service.required,
@@ -78,11 +74,7 @@ resource "google_monitoring_alert_policy" "gke_node_memory_high" {
     content   = "Kaveri DEV GKE node memory utilization has remained above 85% for five minutes. Review memory requests, limits and workload consumption."
   }
 
-  user_labels = {
-    application = "kaveri"
-    environment = "dev"
-    managed_by  = "terraform"
-  }
+  user_labels = merge(local.common_labels, { component = "monitoring" })
 
   depends_on = [
     google_project_service.required,

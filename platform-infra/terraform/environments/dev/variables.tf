@@ -10,8 +10,6 @@ variable "region" {
   default     = "asia-south1"
 }
 
-# Not referenced yet - wiring tracked in #16.
-# tflint-ignore: terraform_unused_declarations
 variable "environment" {
   description = "Deployment environment."
   type        = string
@@ -59,8 +57,6 @@ variable "master_ipv4_cidr_block" {
   default     = "172.16.0.0/28"
 }
 
-# Not referenced yet - wiring tracked in #16.
-# tflint-ignore: terraform_unused_declarations
 variable "labels" {
   description = "Common Kaveri DEV resource labels."
   type        = map(string)
