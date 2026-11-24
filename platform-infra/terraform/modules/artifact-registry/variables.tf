@@ -86,11 +86,6 @@ variable "enable_vpcsc_policy" {
   default     = false
 }
 
-variable "vpcsc_policy" {
-  description = "VPC Service Controls policy"
-  type        = string
-  default     = "ALLOW"
-}
 
 variable "members" {
   description = "Artifact Registry reader and writer IAM members"

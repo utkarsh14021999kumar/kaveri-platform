@@ -1,4 +1,5 @@
 resource "google_container_cluster" "this" {
+  # checkov:skip=CKV_GCP_65:No Google Workspace or Cloud Identity org; access controlled via IAM (single-operator platform).
   project  = var.project_id
   name     = var.cluster_name
   location = var.region

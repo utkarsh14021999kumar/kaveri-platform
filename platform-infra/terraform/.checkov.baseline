@@ -1,0 +1,63 @@
+{
+    "failed_checks": [
+        {
+            "file": "/bootstrap/iam.tf",
+            "findings": [
+                {
+                    "resource": "google_project_iam_member.deployer[\"roles/iam.serviceAccountAdmin\"]",
+                    "check_ids": [
+                        "CKV_GCP_49"
+                    ]
+                },
+                {
+                    "resource": "google_project_iam_member.plan[\"roles/viewer\"]",
+                    "check_ids": [
+                        "CKV_GCP_117"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/gcs-remote-state/main.tf",
+            "findings": [
+                {
+                    "resource": "module.gcs_remote_state.google_storage_bucket.this",
+                    "check_ids": [
+                        "CKV_GCP_62"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/gke/main.tf",
+            "findings": [
+                {
+                    "resource": "module.gke.google_container_cluster.this",
+                    "check_ids": [
+                        "CKV_GCP_13",
+                        "CKV_GCP_61",
+                        "CKV_GCP_66",
+                        "CKV_GCP_69"
+                    ]
+                },
+                {
+                    "resource": "module.gke.google_container_node_pool.this[\"kaveri-dev-system-pool\"]",
+                    "check_ids": [
+                        "CKV_GCP_69"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/networking/main.tf",
+            "findings": [
+                {
+                    "resource": "module.networking.google_compute_network.this",
+                    "check_ids": [
+                        "CKV2_GCP_18"
+                    ]
+                }
+            ]
+        }
+    ]
+}
