@@ -1,4 +1,5 @@
 resource "google_compute_network" "this" {
+  # checkov:skip=CKV2_GCP_18:Firewall rules live in modules/firewall and attach by network name (cross-module reference the graph check cannot follow). Default-deny + allows verified in the pipeline plan (#19).
   project                 = var.project_id
   name                    = var.network_name
   auto_create_subnetworks = false
