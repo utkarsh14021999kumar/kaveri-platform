@@ -73,7 +73,7 @@ variable "labels" {
 variable "zone" {
   description = "Zone for the zonal DEV GKE cluster (ADR-0006: zonal for cost)."
   type        = string
-  default     = "asia-south1-a"
+  default     = "asia-south1"
 }
 
 variable "deployer_service_account_email" {

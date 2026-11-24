@@ -30,7 +30,7 @@ module "gke" {
   node_pools = [
     {
       name               = "kaveri-dev-system-pool"
-      machine_type       = "e2-medium"
+      machine_type       = "e2-standard-2"
       node_locations     = "asia-south1-a"
       min_count          = 1
       max_count          = 2
