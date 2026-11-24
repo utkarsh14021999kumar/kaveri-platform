@@ -15,6 +15,9 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
 | [0007](0007-pipeline-only-infrastructure-changes.md) | Infrastructure changes only through the pipeline | Accepted |
 | [0008](0008-deployer-sa-admin-risk-acceptance.md) | Deployer SA administration: accepted risk | Accepted |
 | [0009](0009-policy-as-code-and-cost-visibility.md) | Policy as code and cost visibility | Accepted |
+| [0010](0010-gke-dns-control-plane-endpoint.md) | GKE DNS control-plane endpoint | Accepted |
+| [0011](0011-secret-values-out-of-band.md) | Secret values out-of-band | Accepted |
+| [0012](0012-ci-supply-chain-and-tests.md) | CI supply chain and tests | Accepted |
 
 ## Template
 
