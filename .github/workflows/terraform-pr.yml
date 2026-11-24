@@ -2,9 +2,6 @@ name: terraform-pr
 
 on:
   pull_request:
-    paths:
-      - "platform-infra/terraform/**"
-      - ".github/workflows/terraform-pr.yml"
 
 # Workflow token: read-only by default; jobs elevate only what they need.
 permissions:
@@ -21,8 +18,30 @@ env:
   TF_INPUT: "false"
 
 jobs:
+  changes:
+    name: Detect Terraform changes
+    runs-on: ubuntu-latest
+    outputs:
+      terraform: ${{ steps.diff.outputs.terraform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Diff against the base branch
+        id: diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(platform-infra/terraform/|\.github/workflows/terraform-pr\.yml$)'; then
+            echo "terraform=true" >> "$GITHUB_OUTPUT"; echo "Terraform changes detected"
+          else
+            echo "terraform=false" >> "$GITHUB_OUTPUT"; echo "No Terraform changes - Terraform jobs will be skipped"
+          fi
+
   static:
     name: Static checks (fmt, validate, TFLint, Checkov, Gitleaks)
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
     runs-on: ubuntu-latest
     env:
       TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tf-plugin-cache
