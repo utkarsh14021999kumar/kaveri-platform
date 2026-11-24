@@ -94,6 +94,18 @@ jobs:
           done
           echo "PASS: variables present"
 
+      - name: Debug - show OIDC token claims (token itself is never printed)
+        run: |
+          RESP=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://iam.googleapis.com/${{ vars.GCP_WIF_PROVIDER }}")
+          echo "$RESP" | python3 -c '
+          import sys, json, base64
+          tok = json.load(sys.stdin)["value"]
+          p = tok.split(".")[1]; p += "=" * (-len(p) % 4)
+          c = json.loads(base64.urlsafe_b64decode(p))
+          print(json.dumps({k: c.get(k) for k in ["sub","repository_id","repository_owner_id","environment","ref","event_name"]}, indent=2))
+          '
+
       - name: Authenticate via WIF as the deployer
         uses: google-github-actions/auth@v2
         with:
