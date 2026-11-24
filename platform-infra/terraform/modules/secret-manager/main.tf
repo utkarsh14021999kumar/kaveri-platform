@@ -4,7 +4,7 @@ data "google_project" "current" {
 
 locals {
   secrets_by_name = {
-    for secret in nonsensitive(var.secrets) :
+    for secret in var.secrets :
     secret.name => secret
   }
 
@@ -109,16 +109,6 @@ resource "google_secret_manager_secret" "this" {
   }
 }
 
-resource "google_secret_manager_secret_version" "this" {
-  for_each = {
-    for name, secret in local.secrets_by_name :
-    name => secret
-    if secret.create_version && secret.secret_data != null
-  }
-
-  secret      = google_secret_manager_secret.this[each.key].id
-  secret_data = each.value.secret_data
-}
 
 resource "google_secret_manager_secret_iam_member" "accessor" {
   for_each = local.secret_accessor_bindings

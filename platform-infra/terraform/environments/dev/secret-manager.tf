@@ -7,12 +7,10 @@ module "secret_manager" {
   # Secret values will be supplied through a secure process later.
   secrets = [
     {
-      name           = "kaveri-dev-app-config"
-      create_version = false
+      name = "kaveri-dev-app-config"
     },
     {
-      name           = "kaveri-dev-db-credentials"
-      create_version = false
+      name = "kaveri-dev-db-credentials"
     }
   ]
 
