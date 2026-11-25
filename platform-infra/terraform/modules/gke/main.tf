@@ -135,6 +135,11 @@ resource "google_container_node_pool" "this" {
 
   initial_node_count = each.value.initial_node_count
 
+  # initial_node_count is creation-only; GKE reports 0 after a pause (resize to 0) -> would force replacement (#61, P2-10).
+  lifecycle {
+    ignore_changes = [initial_node_count]
+  }
+
   autoscaling {
     min_node_count = each.value.min_count
     max_node_count = each.value.max_count
