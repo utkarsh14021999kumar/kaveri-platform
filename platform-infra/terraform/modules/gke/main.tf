@@ -70,7 +70,8 @@ resource "google_container_cluster" "this" {
   }
 
   dynamic "master_authorized_networks_config" {
-    for_each = length(var.master_authorized_networks) > 0 ? [1] : []
+    # GKE API requires MAN enabled when the private endpoint is on (empty list = VPC-internal only; DNS endpoint uses IAM).
+    for_each = (length(var.master_authorized_networks) > 0 || var.enable_private_endpoint) ? [1] : []
 
     content {
       dynamic "cidr_blocks" {

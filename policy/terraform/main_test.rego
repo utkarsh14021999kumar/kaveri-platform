@@ -44,3 +44,17 @@ test_full_labels_allowed if {
 		"change": {"actions": ["create"], "after": {"labels": good_labels}}}]}
 	count(deny) == 0 with input as inp
 }
+
+private_cluster(man) := {"resource_changes": [{"address": "c", "type": "google_container_cluster",
+	"change": {"actions": ["create"], "after": {"location": "asia-south1-a", "resource_labels": good_labels,
+		"private_cluster_config": [{"enable_private_endpoint": true}], "master_authorized_networks_config": man}}}]}
+
+test_private_without_man_denied if {
+	inp := private_cluster([])
+	count(deny) == 1 with input as inp
+}
+
+test_private_with_empty_man_allowed if {
+	inp := private_cluster([{"cidr_blocks": []}])
+	count(deny) == 0 with input as inp
+}
