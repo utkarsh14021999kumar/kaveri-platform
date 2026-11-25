@@ -34,3 +34,17 @@ resource "google_service_account_iam_member" "deployer_wif" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/${local.github_sub_prefix}:environment:${each.value}"
 }
+
+# CI image pusher for kaveri-boutique: no project roles; writer on one Artifact Registry repository (#72).
+resource "google_service_account" "ci_image_pusher" {
+  project      = var.project_id
+  account_id   = var.image_pusher_service_account_id
+  display_name = "KAVERI CI image pusher (kaveri-boutique)"
+  description  = "Pushes images to kaveri-dev-docker from kaveri-boutique main only. No other roles."
+}
+
+resource "google_service_account_iam_member" "ci_image_pusher_wif" {
+  service_account_id = google_service_account.ci_image_pusher.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.boutique_repository_id}"
+}

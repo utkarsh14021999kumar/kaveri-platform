@@ -164,3 +164,31 @@ variable "budget_amount_inr" {
     error_message = "budget_amount_inr must be positive."
   }
 }
+
+variable "boutique_repository_id" {
+  description = "Immutable numeric GitHub repository ID of kaveri-boutique (trusted for image pushes)."
+  type        = string
+  default     = "1471398178"
+  validation {
+    condition     = can(regex("^[0-9]+$", var.boutique_repository_id))
+    error_message = "boutique_repository_id must be the numeric GitHub repository ID."
+  }
+}
+
+variable "image_pusher_service_account_id" {
+  description = "Account ID of the CI image pusher service account."
+  type        = string
+  default     = "kaveri-ci-image-pusher"
+}
+
+variable "image_registry_location" {
+  description = "Location of the Artifact Registry repository the pusher may write to."
+  type        = string
+  default     = "asia-south1"
+}
+
+variable "image_registry_repository" {
+  description = "Artifact Registry repository the pusher may write to (one repository only)."
+  type        = string
+  default     = "kaveri-dev-docker"
+}
