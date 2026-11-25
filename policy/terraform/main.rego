@@ -46,3 +46,16 @@ deny contains msg if {
 	count(missing) > 0
 	msg := sprintf("P3 %s: missing required labels %v", [rc.address, sort(missing)])
 }
+
+# P4: a private endpoint requires master authorized networks (GKE API rule; terraform plan cannot detect it).
+man_enabled(after) if count(after.master_authorized_networks_config) > 0
+
+deny contains msg if {
+	some rc in input.resource_changes
+	rc.type == "google_container_cluster"
+	changing(rc)
+	some pcc in rc.change.after.private_cluster_config
+	pcc.enable_private_endpoint == true
+	not man_enabled(rc.change.after)
+	msg := sprintf("P4 %s: private endpoint requires master_authorized_networks_config (GKE rejects it at apply)", [rc.address])
+}
