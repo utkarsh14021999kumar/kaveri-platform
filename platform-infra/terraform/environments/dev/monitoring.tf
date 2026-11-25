@@ -1,7 +1,14 @@
-resource "google_monitoring_alert_policy" "gke_node_cpu_high" {
+# Existing email channel (bootstrap); reused so the deployer needs no channel-editor role (#66).
+data "google_monitoring_notification_channel" "alerts" {
   project      = var.project_id
-  display_name = "Kaveri DEV - GKE Node CPU High"
-  combiner     = "OR"
+  display_name = var.alert_channel_display_name
+}
+
+resource "google_monitoring_alert_policy" "gke_node_cpu_high" {
+  project               = var.project_id
+  display_name          = "Kaveri DEV - GKE Node CPU High"
+  notification_channels = [data.google_monitoring_notification_channel.alerts.name]
+  combiner              = "OR"
 
   conditions {
     display_name = "GKE node CPU utilization above 85 percent"
@@ -41,9 +48,10 @@ resource "google_monitoring_alert_policy" "gke_node_cpu_high" {
 }
 
 resource "google_monitoring_alert_policy" "gke_node_memory_high" {
-  project      = var.project_id
-  display_name = "Kaveri DEV - GKE Node Memory High"
-  combiner     = "OR"
+  project               = var.project_id
+  display_name          = "Kaveri DEV - GKE Node Memory High"
+  notification_channels = [data.google_monitoring_notification_channel.alerts.name]
+  combiner              = "OR"
 
   conditions {
     display_name = "GKE node memory utilization above 85 percent"

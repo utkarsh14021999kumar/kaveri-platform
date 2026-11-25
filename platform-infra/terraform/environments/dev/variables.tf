@@ -81,3 +81,9 @@ variable "deployer_service_account_email" {
   type        = string
   default     = "kaveri-terraform-deployer@vibrant-chain-514216-p4.iam.gserviceaccount.com"
 }
+
+variable "alert_channel_display_name" {
+  description = "Display name of the existing email notification channel used for DEV alerts (created in bootstrap)."
+  type        = string
+  default     = "KAVERI budget alerts"
+}
