@@ -59,3 +59,16 @@ deny contains msg if {
 	not man_enabled(rc.change.after)
 	msg := sprintf("P4 %s: private endpoint requires master_authorized_networks_config (GKE rejects it at apply)", [rc.address])
 }
+
+# P5: no delete/replace of protected DEV resources unless the address is in the reviewed allowlist (#61, P2-10).
+protected_types := {"google_container_cluster", "google_container_node_pool", "google_compute_network", "google_compute_subnetwork"}
+
+replace_allowed := {a | some a in data.replace_allowlist.addresses}
+
+deny contains msg if {
+	some rc in input.resource_changes
+	rc.type in protected_types
+	"delete" in rc.change.actions
+	not replace_allowed[rc.address]
+	msg := sprintf("P5 %s: plan would %v a protected DEV resource - add it to policy/terraform/data/replace_allowlist.json in a reviewed PR if intended", [rc.address, rc.change.actions])
+}

@@ -58,3 +58,21 @@ test_private_with_empty_man_allowed if {
 	inp := private_cluster([{"cidr_blocks": []}])
 	count(deny) == 0 with input as inp
 }
+
+pool_change(actions) := {"resource_changes": [{"address": "p", "type": "google_container_node_pool",
+	"change": {"actions": actions, "after": {}}}]}
+
+test_node_pool_replace_denied if {
+	inp := pool_change(["delete", "create"])
+	count(deny) == 1 with input as inp
+}
+
+test_node_pool_replace_allowed_when_listed if {
+	inp := pool_change(["delete", "create"])
+	count(deny) == 0 with input as inp with data.replace_allowlist as {"addresses": ["p"]}
+}
+
+test_node_pool_update_allowed if {
+	inp := pool_change(["update"])
+	count(deny) == 0 with input as inp
+}
