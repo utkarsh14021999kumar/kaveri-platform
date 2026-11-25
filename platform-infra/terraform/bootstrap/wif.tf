@@ -34,3 +34,28 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
+
+# kaveri-boutique image pushes: separate provider, main branch only (#72, ADR-0014).
+resource "google_iam_workload_identity_pool_provider" "github_boutique" {
+  # checkov:skip=CKV_GCP_125:Condition pins immutable owner/repo IDs (stronger than name claims); see docs/incidents/2026-11-23-wif-deployer-403.md.
+  project                            = var.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-boutique-provider"
+  display_name                       = "GitHub OIDC - kaveri-boutique"
+
+  attribute_mapping = {
+    "google.subject"                = "assertion.sub"
+    "attribute.repository"          = "assertion.repository"
+    "attribute.repository_owner"    = "assertion.repository_owner"
+    "attribute.repository_id"       = "assertion.repository_id"
+    "attribute.repository_owner_id" = "assertion.repository_owner_id"
+    "attribute.ref"                 = "assertion.ref"
+    "attribute.actor"               = "assertion.actor"
+  }
+
+  attribute_condition = "assertion.repository_owner_id == '${var.github_owner_id}' && assertion.repository_id == '${var.boutique_repository_id}' && assertion.ref == 'refs/heads/main'"
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}

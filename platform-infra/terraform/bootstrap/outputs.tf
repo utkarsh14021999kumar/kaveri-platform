@@ -33,3 +33,13 @@ output "github_actions_variables" {
     TF_STATE_BUCKET  = module.gcs_remote_state.bucket_name
   }
 }
+
+output "ci_image_pusher_email" {
+  description = "Service account used by kaveri-boutique CI to push images."
+  value       = google_service_account.ci_image_pusher.email
+}
+
+output "boutique_wif_provider" {
+  description = "Full resource name of the kaveri-boutique WIF provider (GitHub variable GCP_WIF_PROVIDER in kaveri-boutique)."
+  value       = google_iam_workload_identity_pool_provider.github_boutique.name
+}
