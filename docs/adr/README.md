@@ -29,3 +29,4 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
     ## Decision
     ## Consequences
     ## Alternatives considered
+- [ADR-0014](0014-application-repository-import.md) - Application repository: pinned upstream import, DEV service scope
