@@ -17,7 +17,21 @@ module "artifact_registry" {
 
   cleanup_policy_dry_run = true
 
-  cleanup_policies = {}
+  # 2.14: KEEP wins over DELETE. Dry run first; enforce after reviewing at least one daily cycle.
+  cleanup_policies = {
+    "keep-last-10" = {
+      action               = "KEEP"
+      most_recent_versions = { keep_count = 10 }
+    }
+    "delete-untagged-7d" = {
+      action    = "DELETE"
+      condition = { tag_state = "UNTAGGED", older_than = "604800s" }
+    }
+    "delete-tagged-90d" = {
+      action    = "DELETE"
+      condition = { tag_state = "TAGGED", older_than = "7776000s" }
+    }
+  }
 
   # GKE nodes can pull images but cannot publish or delete them.
   members = {

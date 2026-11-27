@@ -155,6 +155,7 @@ resource "google_container_node_pool" "this" {
     disk_size_gb    = each.value.disk_size_gb
     disk_type       = each.value.disk_type
     image_type      = each.value.image_type
+    spot            = each.value.spot
     service_account = var.node_service_account_email
 
     # Pods get only their own Workload Identity, never the node's credentials (CKV_GCP_69).

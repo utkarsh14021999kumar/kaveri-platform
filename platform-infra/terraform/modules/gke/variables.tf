@@ -66,6 +66,7 @@ variable "node_pools" {
     image_type         = string
     auto_repair        = bool
     auto_upgrade       = bool
+    spot               = optional(bool, false)
   }))
 
   validation {
