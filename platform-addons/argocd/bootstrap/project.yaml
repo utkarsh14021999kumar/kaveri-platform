@@ -1,0 +1,18 @@
+# AppProject kaveri (ADR-0016): one source repo, two namespaces, Namespace as the only cluster-scoped kind.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kaveri
+  namespace: argocd
+spec:
+  description: KAVERI DEV desired state (ADR-0016)
+  sourceRepos:
+    - https://github.com/utkarsh14021999kumar/kaveri-gitops.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: kaveri-dev
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

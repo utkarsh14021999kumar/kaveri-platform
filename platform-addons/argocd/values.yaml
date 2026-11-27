@@ -1,0 +1,29 @@
+# Argo CD for DEV (ADR-0016). Chart version and sha256 pinned in chart.env.
+global:
+  nodeSelector:
+    cloud.google.com/gke-nodepool: kaveri-dev-system-pool
+configs:
+  params:
+    # No ingress: the API server is reached by port-forward through the DNS endpoint only.
+    server.insecure: true
+dex:
+  enabled: false
+notifications:
+  enabled: false
+controller:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+repoServer:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+server:
+  service:
+    type: ClusterIP
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+redis:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+applicationSet:
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}

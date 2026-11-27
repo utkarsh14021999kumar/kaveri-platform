@@ -18,6 +18,10 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
 | [0010](0010-gke-dns-control-plane-endpoint.md) | GKE DNS control-plane endpoint | Accepted |
 | [0011](0011-secret-values-out-of-band.md) | Secret values out-of-band | Accepted |
 | [0012](0012-ci-supply-chain-and-tests.md) | CI supply chain and tests | Accepted |
+| [0013](0013-dev-node-sizing.md) | DEV node sizing: dedicated Spot application node pool | Accepted |
+| [0014](0014-application-repository-import.md) | Application repository: pinned upstream import, DEV service scope | Accepted |
+| [0015](0015-application-ci.md) | Application CI pipeline | Accepted |
+| [0016](0016-gitops-argocd.md) | GitOps delivery with Argo CD | Accepted |
 
 ## Template
 
@@ -29,4 +33,3 @@ New ADRs: copy the template below into `NNNN-short-title.md` and open a PR.
     ## Decision
     ## Consequences
     ## Alternatives considered
-- [ADR-0014](0014-application-repository-import.md) - Application repository: pinned upstream import, DEV service scope
