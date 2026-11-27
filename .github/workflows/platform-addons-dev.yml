@@ -1,0 +1,97 @@
+name: platform-addons-dev
+
+# DEV cluster add-ons through the pipeline only (ADR-0007, ADR-0016):
+# Argo CD from a pinned, checksum-verified Helm chart, AppProject + root app-of-apps,
+# then the Workload Identity allowed/denied check (2.17).
+on:
+  workflow_dispatch:
+    inputs:
+      run_wi_check:
+        description: "Run the Workload Identity allowed/denied check after install"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Same queue as terraform-apply-dev and dev-pause: never overlaps a cluster change.
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  PROJECT: ${{ vars.GCP_PROJECT_ID }}
+  CLUSTER: kaveri-dev-gke
+  ZONE: asia-south1-a
+  ADDONS: platform-addons
+
+jobs:
+  addons:
+    name: Install add-ons (deployer, approval required)
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Authenticate via WIF as the deployer (environment dev only)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Cluster credentials through the IAM-controlled DNS endpoint (ADR-0010)
+        run: gcloud container clusters get-credentials "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --dns-endpoint
+
+      - name: Install Argo CD from the pinned, checksum-verified chart
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1090,SC1091
+          . "$ADDONS/argocd/chart.env"
+          mkdir -p /tmp/chart
+          helm pull argo-cd --repo "$CHART_REPO" --version "$CHART_VERSION" -d /tmp/chart
+          echo "$CHART_SHA256  /tmp/chart/argo-cd-$CHART_VERSION.tgz" | sha256sum -c -
+          helm upgrade --install argocd "/tmp/chart/argo-cd-$CHART_VERSION.tgz" -n argocd --create-namespace \
+            -f "$ADDONS/argocd/values.yaml" --wait --timeout 10m
+          echo "- Argo CD chart $CHART_VERSION (sha256 verified)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: AppProject and root app-of-apps
+        run: kubectl apply -f "$ADDONS/argocd/bootstrap/"
+
+      - name: Wait until root and platform apps are Synced and Healthy
+        run: |
+          set -euo pipefail
+          for app in kaveri-dev-root kaveri-dev-platform; do
+            s=""
+            for i in $(seq 1 60); do
+              s=$(kubectl -n argocd get application "$app" -o jsonpath='{.status.sync.status}/{.status.health.status}' 2>/dev/null || true)
+              echo "$app t=$((i*10))s ${s:-not-yet}"
+              if [ "$s" = "Synced/Healthy" ]; then break; fi
+              sleep 10
+            done
+            if [ "$s" != "Synced/Healthy" ]; then kubectl -n argocd get application "$app" -o yaml || true; exit 1; fi
+            echo "- $app: Synced/Healthy" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Workload Identity check - app-runtime allowed, default denied (2.17)
+        if: inputs.run_wi_check
+        run: |
+          set -euo pipefail
+          kubectl -n kaveri-dev delete job wi-allowed wi-denied --ignore-not-found
+          sed "s|__PROJECT__|$PROJECT|g" "$ADDONS/tests/wi-check.yaml" | kubectl apply -f -
+          kubectl -n kaveri-dev wait --for=condition=complete job/wi-allowed job/wi-denied --timeout=300s
+          A=$(kubectl -n kaveri-dev logs job/wi-allowed)
+          D=$(kubectl -n kaveri-dev logs job/wi-denied)
+          echo "WI allowed: $A"
+          echo "WI denied:  $D"
+          echo "$A" | grep -q 'IDENTITY=kaveri-dev-app-runtime@'
+          echo "$A" | grep -qE 'HTTP=(200|404)'
+          echo "$D" | grep -qE 'HTTP=(401|403)'
+          { echo "### Workload Identity check"; echo "- app-runtime: $A"; echo "- default: $D"; } >> "$GITHUB_STEP_SUMMARY"
+          kubectl -n kaveri-dev delete job wi-allowed wi-denied

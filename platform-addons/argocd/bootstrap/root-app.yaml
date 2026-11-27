@@ -1,0 +1,19 @@
+# Root app-of-apps: every Application under clusters/dev in kaveri-gitops.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kaveri-dev-root
+  namespace: argocd
+spec:
+  project: kaveri
+  source:
+    repoURL: https://github.com/utkarsh14021999kumar/kaveri-gitops.git
+    targetRevision: main
+    path: clusters/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

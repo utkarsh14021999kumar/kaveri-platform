@@ -1,0 +1,79 @@
+# 2.17 Workload Identity check. Applied and deleted by platform-addons-dev (test artefact, not GitOps-managed).
+# wi-allowed uses KSA app-runtime (bound to the GSA); wi-denied uses the default KSA (no binding).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wi-allowed
+  namespace: kaveri-dev
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: app-runtime
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-nodepool: kaveri-dev-app-pool
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+      containers:
+        - name: check
+          image: curlimages/curl@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              M=http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default
+              EMAIL=$(curl -s -H 'Metadata-Flavor: Google' "$M/email")
+              TOKEN=$(curl -s -H 'Metadata-Flavor: Google' "$M/token" | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+                "https://secretmanager.googleapis.com/v1/projects/__PROJECT__/secrets/kaveri-dev-app-config/versions/latest:access")
+              echo "IDENTITY=$EMAIL HTTP=$CODE"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wi-denied
+  namespace: kaveri-dev
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: default
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-nodepool: kaveri-dev-app-pool
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+      containers:
+        - name: check
+          image: curlimages/curl@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              M=http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default
+              EMAIL=$(curl -s -H 'Metadata-Flavor: Google' "$M/email")
+              TOKEN=$(curl -s -H 'Metadata-Flavor: Google' "$M/token" | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+                "https://secretmanager.googleapis.com/v1/projects/__PROJECT__/secrets/kaveri-dev-app-config/versions/latest:access")
+              echo "IDENTITY=$EMAIL HTTP=$CODE"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
