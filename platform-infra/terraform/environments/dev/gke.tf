@@ -40,6 +40,21 @@ module "gke" {
       image_type         = "COS_CONTAINERD"
       auto_repair        = true
       auto_upgrade       = true
+    },
+    {
+      # ADR-0013: application workloads; Spot for DEV cost. P5-safe (new pool, no replacement).
+      name               = "kaveri-dev-app-pool"
+      machine_type       = "e2-standard-2"
+      node_locations     = "asia-south1-a"
+      min_count          = 1
+      max_count          = 2
+      initial_node_count = 1
+      disk_size_gb       = 50
+      disk_type          = "pd-balanced"
+      image_type         = "COS_CONTAINERD"
+      auto_repair        = true
+      auto_upgrade       = true
+      spot               = true
     }
   ]
 

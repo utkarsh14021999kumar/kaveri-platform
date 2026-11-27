@@ -3,11 +3,12 @@ name: dev-pause
 # Operational pause of DEV compute (ADR-0006 short-burst).
 # Pause = this workflow (approval). Resume = terraform-apply-dev with apply=true (restores autoscaling).
 # v2 (#61): waits for the cluster autoscaler to drop the old config (P2-9), verifies real VMs (P2-8).
+# v3 (ADR-0013): handles every node pool in the cluster (system + app), not one hard-coded pool.
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status (read-only) or pause (scale node pool to 0; approval required)"
+        description: "status (read-only) or pause (scale every node pool to 0; approval required)"
         type: choice
         options: [status, pause]
         default: status
@@ -24,7 +25,6 @@ env:
   PROJECT: ${{ vars.GCP_PROJECT_ID }}
   CLUSTER: kaveri-dev-gke
   ZONE: asia-south1-a
-  POOL: kaveri-dev-system-pool
 
 jobs:
   status:
@@ -42,15 +42,21 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      - name: Show node pool state (instance group = source of truth)
+      - name: Show every node pool (instance group = source of truth)
         run: |
-          MIG=$(gcloud container node-pools describe "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
-                --format='value(instanceGroupUrls[0].basename())')
-          gcloud container node-pools describe "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
-            --format='table(name,status,autoscaling.enabled,autoscaling.minNodeCount,autoscaling.maxNodeCount)'
-          SIZE=$(gcloud compute instance-groups managed describe "$MIG" --zone "$ZONE" --project "$PROJECT" --format='value(targetSize)')
-          echo "instance group $MIG targetSize=$SIZE"
-          echo "### DEV compute status: targetSize=$SIZE" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          gcloud container node-pools list --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --format='value(name)' > pools.txt
+          test -s pools.txt
+          echo "### DEV compute status" >> "$GITHUB_STEP_SUMMARY"
+          while read -r pool <&3; do
+            mig=$(gcloud container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+                  --format='value(instanceGroupUrls[0].basename())')
+            as=$(gcloud container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+                 --format='value(autoscaling.enabled)')
+            size=$(gcloud compute instance-groups managed describe "$mig" --zone "$ZONE" --project "$PROJECT" --format='value(targetSize)')
+            echo "pool=$pool autoscaling=${as:-False} targetSize=$size"
+            echo "- $pool: autoscaling=${as:-False}, targetSize=$size" >> "$GITHUB_STEP_SUMMARY"
+          done 3< pools.txt
 
   pause:
     name: Pause DEV compute (deployer, approval required)
@@ -70,33 +76,40 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      - name: Disable autoscaling, then wait for the autoscaler to drop the old config (P2-9)
+      - name: Disable autoscaling on every pool, then wait for the autoscaler to drop the old config (P2-9)
         run: |
           set -euo pipefail
-          gcloud container clusters update "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
-            --node-pool "$POOL" --no-enable-autoscaling --quiet
-          echo "autoscaling disabled; waiting 120 s so the cluster autoscaler stops acting on the old 1-2 range"
+          gcloud container node-pools list --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --format='value(name)' > pools.txt
+          test -s pools.txt
+          while read -r pool <&3; do
+            echo "disable autoscaling: $pool"
+            gcloud container clusters update "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+              --node-pool "$pool" --no-enable-autoscaling --quiet
+          done 3< pools.txt
+          echo "waiting 120 s so the cluster autoscaler stops acting on the old ranges"
           sleep 120
 
-      - name: Resize to 0 and wait until no node VMs remain (one retry)
+      - name: Resize every pool to 0 and wait until no node VMs remain (one retry per pool)
         run: |
           set -euo pipefail
-          PREFIX=$(gcloud container node-pools describe "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
-                   --format='value(instanceGroupUrls[0].basename())' | sed 's/-grp$//')
-          count() { gcloud compute instances list --project "$PROJECT" --zones "$ZONE" --filter="name~^${PREFIX}" --format='value(name)' | wc -l; }
-          ok=0
-          for attempt in 1 2; do
-            echo "attempt $attempt: resize to 0"
-            gcloud container clusters resize "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --node-pool "$POOL" --num-nodes 0 --quiet
-            for i in $(seq 1 60); do
-              n=$(count); echo "t=$((i*10))s node VMs=$n"
-              if [ "$n" -eq 0 ]; then sleep 20; if [ "$(count)" -eq 0 ]; then ok=1; break; fi; fi
-              sleep 10
+          count() { gcloud compute instances list --project "$PROJECT" --zones "$ZONE" --filter="name~^${1}" --format='value(name)' | wc -l; }
+          while read -r pool <&3; do
+            prefix=$(gcloud container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+                     --format='value(instanceGroupUrls[0].basename())' | sed 's/-grp$//')
+            ok=0
+            for attempt in 1 2; do
+              echo "$pool attempt $attempt: resize to 0"
+              gcloud container clusters resize "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --node-pool "$pool" --num-nodes 0 --quiet
+              for i in $(seq 1 60); do
+                n=$(count "$prefix"); echo "$pool t=$((i*10))s node VMs=$n"
+                if [ "$n" -eq 0 ]; then sleep 20; if [ "$(count "$prefix")" -eq 0 ]; then ok=1; break; fi; fi
+                sleep 10
+              done
+              if [ "$ok" -eq 1 ]; then break; fi
             done
-            if [ "$ok" -eq 1 ]; then break; fi
-          done
-          if [ "$ok" -ne 1 ]; then echo "FAIL: node VMs remain after 2 attempts"; exit 1; fi
-          echo "attempts used: $attempt" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$ok" -ne 1 ]; then echo "FAIL: $pool node VMs remain after 2 attempts"; exit 1; fi
+            echo "- $pool paused (attempts used: $attempt)" >> "$GITHUB_STEP_SUMMARY"
+          done 3< pools.txt
 
   verify:
     name: Verify pause (read-only identity)
@@ -114,17 +127,22 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      - name: Instance group targetSize=0, stable, and no node VMs (P2-8)
+      - name: Every pool - targetSize=0, stable, and no node VMs (P2-8)
         run: |
           set -euo pipefail
-          MIG=$(gcloud container node-pools describe "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
-                --format='value(instanceGroupUrls[0].basename())')
-          SIZE=$(gcloud compute instance-groups managed describe "$MIG" --zone "$ZONE" --project "$PROJECT" --format='value(targetSize)')
-          STABLE=$(gcloud compute instance-groups managed describe "$MIG" --zone "$ZONE" --project "$PROJECT" --format='value(status.isStable)')
-          VMS=$(gcloud compute instances list --project "$PROJECT" --zones "$ZONE" --filter="name~^${MIG%-grp}" --format='value(name)' | wc -l)
-          echo "targetSize=$SIZE stable=$STABLE nodeVMs=$VMS"
-          if [ "$SIZE" != "0" ] || [ "$STABLE" != "True" ] || [ "$VMS" -ne 0 ]; then echo "FAIL: DEV compute not paused"; exit 1; fi
-          {
-            echo "### DEV compute paused (verified read-only)"
-            echo "targetSize=0, stable, no node VMs. Resume: terraform-apply-dev with apply=true."
-          } >> "$GITHUB_STEP_SUMMARY"
+          gcloud container node-pools list --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --format='value(name)' > pools.txt
+          test -s pools.txt
+          bad=0
+          echo "### DEV compute paused (verified read-only)" >> "$GITHUB_STEP_SUMMARY"
+          while read -r pool <&3; do
+            mig=$(gcloud container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+                  --format='value(instanceGroupUrls[0].basename())')
+            size=$(gcloud compute instance-groups managed describe "$mig" --zone "$ZONE" --project "$PROJECT" --format='value(targetSize)')
+            stable=$(gcloud compute instance-groups managed describe "$mig" --zone "$ZONE" --project "$PROJECT" --format='value(status.isStable)')
+            vms=$(gcloud compute instances list --project "$PROJECT" --zones "$ZONE" --filter="name~^${mig%-grp}" --format='value(name)' | wc -l)
+            echo "pool=$pool targetSize=$size stable=$stable nodeVMs=$vms"
+            echo "- $pool: targetSize=$size, stable=$stable, nodeVMs=$vms" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$size" != "0" ] || [ "$stable" != "True" ] || [ "$vms" -ne 0 ]; then bad=1; fi
+          done 3< pools.txt
+          if [ "$bad" -ne 0 ]; then echo "FAIL: DEV compute not paused"; exit 1; fi
+          echo "Resume: terraform-apply-dev with apply=true." >> "$GITHUB_STEP_SUMMARY"
